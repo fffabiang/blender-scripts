@@ -1,17 +1,32 @@
+bl_info = {
+    "name": "Action Keyframe Insertion",
+    "author": "ffabian",
+    "version": (1, 0),
+    "blender": (3, 4, 0),
+    "location": "AssetBrowser > Toolbar",
+    "description": "Select an action from the asset browser and append its keyframes to an action in the Action Editor.",
+    "warning": "",
+    "wiki_url": "",
+    "category": "Animation"
+}
+
+
 import bpy
 
 from pathlib import Path
 
-class PrintSelectedAssets(bpy.types.Operator):
-    bl_idname = "asset.print_selected_assets"
-    bl_label = "Print Selected Assets"
+class InsertActionKeyframes(bpy.types.Operator):
+    bl_idname = "asset.insert_action_keyframes"
+    bl_label = "Insert Action Keyframes"
 
     @classmethod
     def poll(cls, context):
         return context.selected_asset_files
 
     def execute(self, context):
-        current_library_name = context.area.spaces.active.params.asset_library_ref
+        
+        
+        current_library_name = context.area.spaces.active.params.asset_library_ref        
         if current_library_name != "LOCAL":  # NOT Current file
             library_path = Path(context.preferences.filepaths.asset_libraries.get(current_library_name).path)
 
@@ -37,24 +52,27 @@ class PrintSelectedAssets(bpy.types.Operator):
                     for fcu in action.fcurves:                        
                                                                         
                         #print(fcu.data_path + " channel " + str(fcu.array_index))                        
+
                         #If curve in Action exists in TargetAction
                         target_fcurve = target_action.fcurves.find(data_path=fcu.data_path, index=fcu.array_index)
                         if target_fcurve != None:
                             print("fcurve to paste: " + target_fcurve.data_path)                                                                                        
                             for keyframe in fcu.keyframe_points:                        
-                                #start_frame = start_frame + keyframe.co.x
                                 target_fcurve.keyframe_points.insert(start_frame + keyframe.co.x, keyframe.co.y)
-                                #print(keyframe.co) #coordinates x,y                            
-                    
-                    
-                    #print("")
-                    #print("current action data")
-                    #for fcu in ob.animation_data.action.fcurves:
-                    #    print(fcu.data_path + " channel " + str(fcu.array_index))
-                    #    for keyframe in fcu.keyframe_points:
-                    #        print(keyframe.co) #coordinates x,y
-                        
-                        
+                
+                #Should only work for the first selected action
+                break    
+                  
+        
+        #Updates dopesheet related UI
+        for area in bpy.context.screen.areas:
+            if area.type == 'DOPESHEET_EDITOR':
+                for region in area.regions:
+                    if region.type == 'WINDOW':
+                        region.tag_redraw()
+                    if region.type == 'CHANNELS':
+                        region.tag_redraw()
+                  
             #if current_library_name == "LOCAL":
             #    print(f"{asset_file.local_id.name} is selected in the asset browser. (Local File)")
             #else:
@@ -66,17 +84,17 @@ class PrintSelectedAssets(bpy.types.Operator):
 
 
 def display_button(self, context):
-    self.layout.operator(PrintSelectedAssets.bl_idname)
+    self.layout.operator(InsertActionKeyframes.bl_idname)
 
 
 def register():
-    bpy.utils.register_class(PrintSelectedAssets)
+    bpy.utils.register_class(InsertActionKeyframes)
     bpy.types.ASSETBROWSER_MT_editor_menus.append(display_button)
 
 
 def unregister():
     bpy.types.ASSETBROWSER_MT_editor_menus.remove(display_button)
-    bpy.utils.unregister_class(PrintSelectedAssets)
+    bpy.utils.unregister_class(InsertActionKeyframes)
 
 
 if __name__ == "__main__":
