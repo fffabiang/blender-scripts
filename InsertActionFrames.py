@@ -24,19 +24,30 @@ class InsertActionKeyframes(bpy.types.Operator):
         return context.selected_asset_files
 
     def execute(self, context):
-        
-        
-        current_library_name = context.area.spaces.active.params.asset_library_ref        
-        if current_library_name != "LOCAL":  # NOT Current file
-            library_path = Path(context.preferences.filepaths.asset_libraries.get(current_library_name).path)
 
-        for asset_file in context.selected_asset_files:
+        current_library_name = context.area.spaces.active.params.asset_library_ref
+        num_selected = len(context.selected_asset_files)
+        
+        if num_selected == 1:
+            
+            asset_file = context.selected_asset_files[0]        
             
             # Check if current asset file is an action
-            if asset_file.id_type=="ACTION":                                            
+            if asset_file.id_type=="ACTION":
+                
+                #If asset belongs to external library and has not been linked before, link it
+                if current_library_name != "LOCAL": 
+                    is_linked_action = bpy.data.actions.get(asset_file.name)
+                    if is_linked_action == None:                
+                        library_path = Path(context.preferences.filepaths.asset_libraries.get(current_library_name).path)
+                        library_to_load = str(library_path)+'/'+asset_file.relative_path.split('.')[0]+'.blend'            
+                        with bpy.data.libraries.load(library_to_load, link=True, assets_only=True) as (data_from, data_to):
+                            data_to.actions = data_from.actions
+                    
+                #Selected action from Asset Browser
                 action = bpy.data.actions.get(asset_file.name)
                 
-                #Selected action in Action Editor
+                #Target action from Action Editor
                 ob = bpy.context.object
                 target_action = (ob.animation_data.action 
                     if ob.animation_data is not None
@@ -47,12 +58,9 @@ class InsertActionKeyframes(bpy.types.Operator):
                 if target_action != None:
                     
                     start_frame = bpy.context.scene.frame_current
-                    print("About to copyframes to.." + target_action.name + " at frame " + str(start_frame) )
+                    print("About to copyframes to.. " + target_action.name + " at frame " + str(start_frame) )
 
-                    for fcu in action.fcurves:                        
-                                                                        
-                        #print(fcu.data_path + " channel " + str(fcu.array_index))                        
-
+                    for fcu in action.fcurves:                                                                                    
                         #If curve in Action exists in TargetAction
                         target_fcurve = target_action.fcurves.find(data_path=fcu.data_path, index=fcu.array_index)
                         if target_fcurve != None:
@@ -60,8 +68,6 @@ class InsertActionKeyframes(bpy.types.Operator):
                             for keyframe in fcu.keyframe_points:                        
                                 target_fcurve.keyframe_points.insert(start_frame + keyframe.co.x, keyframe.co.y)
                 
-                #Should only work for the first selected action
-                break    
                   
         
         #Updates dopesheet related UI
